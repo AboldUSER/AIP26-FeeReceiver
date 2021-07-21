@@ -109,9 +109,9 @@ contract FeeReceiver is Ownable, TokenPaymentSplitter {
 
     /**
      * @dev Set a new fee (perentage 0 - 100) for calling the ConsolidateFeeToken function.
-     * @param _claims The claim struct necessary to withdraw from the fee pool
-     * @param _swapFromToken The token from the fee pool to be swapped from
-     * @param _amount The amount of token from the fee pool to be swapped and distributed
+     * @param _claims The claim struct necessary to withdraw from the fee pool.
+     * @param _swapFromToken The token from the fee pool to be swapped from.
+     * @param _amount The amount of token from the fee pool to be swapped and distributed.
      */
     function ConsolidateFeeToken(
         IPool.Claim[] memory _claims,
@@ -119,14 +119,14 @@ contract FeeReceiver is Ownable, TokenPaymentSplitter {
         uint256 _amount
     ) public {
 
-        // Calls the withdrawProtected function from the fee pool to transfer tokens into this contract
+        // Calls the withdrawProtected function from the fee pool to transfer tokens into this contract.
         IPool(poolAddress).withdrawProtected(
             _claims,
             IERC20(_swapFromToken),
             _amount
         );
 
-        // Calls the getExpectedReturn function from the on-chain AMM and catches result
+        // Calls the getExpectedReturn function from the on-chain AMM and catches result.
         (uint256 _expected, uint256[] memory _distribution) = IOneSplitAudit(
             oneSplitAudit
         ).getExpectedReturn(
@@ -137,7 +137,7 @@ contract FeeReceiver is Ownable, TokenPaymentSplitter {
             0
         );
 
-        // Calls the swap function from the on-chain AMM to swap token from fee pool into (stable)token
+        // Calls the swap function from the on-chain AMM to swap token from fee pool into (stable)token.
         IOneSplitAudit(oneSplitAudit).swap(
             IERC20(_swapFromToken),
             IERC20(swapToToken),
@@ -147,11 +147,11 @@ contract FeeReceiver is Ownable, TokenPaymentSplitter {
             0
         );
 
-        // Calculates trigger reward amount and transfers to msg.sender
+        // Calculates trigger reward amount and transfers to msg.sender.
         uint256 triggerFeeAmount = _amount.mul(triggerFee).div(100);
         _transferErc20(msg.sender, swapToToken, triggerFeeAmount);
 
-        // Transfers remaining amount to reward pool address(es)
+        // Transfers remaining amount to reward pool address(es).
         uint256 rewardPoolAmount = _amount.sub(triggerFeeAmount);
         for (uint256 i = 0; i < _payees.length; i++) {
             uint256 distributionRatio = (_shares[_payees[i]] / _totalShares);
@@ -172,7 +172,7 @@ contract FeeReceiver is Ownable, TokenPaymentSplitter {
     }
 
     /**
-     * @dev Internal function to transfer ERC20 held in the contract
+     * @dev Internal function to transfer ERC20 held in the contract.
      *
      * */
     function _transferErc20(
@@ -187,5 +187,13 @@ contract FeeReceiver is Ownable, TokenPaymentSplitter {
             "Not enough funds to transfer"
         );
         erc.transfer(_recipient, _returnAmount);
+    }
+
+    function addPayee(address _account, uint256 _shares) public onlyOwner {
+        _addPayee(_account, _shares);
+    }
+
+    function removePayee(address _account, uint256 _index) public onlyOwner {
+        _removePayee(_account, _index);
     }
 }

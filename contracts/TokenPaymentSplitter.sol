@@ -74,7 +74,7 @@ contract TokenPaymentSplitter is Context {
      * @param account The address of the payee to add.
      * @param shares_ The number of shares owned by the payee.
      */
-    function _addPayee(address account, uint256 shares_) private {
+    function _addPayee(address account, uint256 shares_) internal {
         require(
             account != address(0),
             "PaymentSplitter: account is the zero address"
@@ -96,13 +96,13 @@ contract TokenPaymentSplitter is Context {
      * @param account The address of the payee to remove.
      * @param index The position of the payee in the _payees array.
      */
-    function _removePayee(address account, uint256 index) private {
+    function _removePayee(address account, uint256 index) internal {
         require(
             account != address(0),
             "PaymentSplitter: account is the zero address"
         );
         require(_shares[account] > 0, "PaymentSplitter: shares are 0");
-        require(account == _payees[index], "PaymentSplitter: shares are 0");
+        require(account == _payees[index], "PaymentSplitter: account does not match payee array index");
 
         _totalShares = _totalShares - _shares[account];
         _shares[account] = 0;
