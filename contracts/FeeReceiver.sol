@@ -63,11 +63,17 @@ contract FeeReceiver is Ownable, TokenPaymentSplitter {
 
     address public oneSplitAudit;
 
+    address public stakeAddress;
+
+    uint256 public stakeThreshold;
+
     uint256 public triggerFee;
+
+    bool public stakeActive;
 
     /**
      * @dev Set a new token to swap to (e.g., stabletoken).
-     */
+     **/ 
     function setSwapToToken(address _swapToToken) public onlyOwner {
         swapToToken = _swapToToken;
     }
@@ -82,8 +88,29 @@ contract FeeReceiver is Ownable, TokenPaymentSplitter {
     /**
      * @dev Set a new address of on-chain AMM.
      */
-    function setoneSplitAudit(address _oneSplitAudit) public onlyOwner {
+    function setOneSplitAudit(address _oneSplitAudit) public onlyOwner {
         oneSplitAudit = _oneSplitAudit;
+    }
+
+    /**
+     * @dev Set a new address of stake contract.
+     */
+    function setStakeAddress(address _stakeAddress) public onlyOwner {
+        stakeAddress = _stakeAddress;
+    }
+
+    /**
+     * @dev Set a new threshold for stake contract token balance.
+     */
+    function setStakeThreshold(uint256 _stakeThreshold) public onlyOwner {
+        stakeThreshold = _stakeThreshold;
+    }
+
+        /**
+     * @dev Set a if staking is required.
+     */
+    function setStakeActive(bool _switch) public onlyOwner {
+        stakeActive = _switch;
     }
 
     /**
@@ -118,6 +145,10 @@ contract FeeReceiver is Ownable, TokenPaymentSplitter {
         address _swapFromToken,
         uint256 _amount
     ) public {
+
+        if (stakeActive) {
+            require(checkStake(msg.sender), "Not enough staked tokens");
+        }
 
         // Calls the withdrawProtected function from the fee pool to transfer tokens into this contract.
         IPool(poolAddress).withdrawProtected(
@@ -189,10 +220,31 @@ contract FeeReceiver is Ownable, TokenPaymentSplitter {
         erc.transfer(_recipient, _returnAmount);
     }
 
+    /**
+     * @dev Checks if an address is staking tokens at or above threshold.
+     * @param _staker Address to check if token staker.
+     */
+    function checkStake(address _staker) internal view returns(bool) {
+        IERC20 erc;
+        erc = IERC20(stakeAddress);
+        bool verifiedStaker = (erc.balanceOf(_staker) >= stakeThreshold) ? true : false;
+        return verifiedStaker;
+    }
+
+    /**
+     * @dev Add a recipient to receive payouts from the consolidateFeeToken function.
+     * @param _account Address of the recipient.
+     * @param _shares Amount of shares to determine th proportion of payout received.
+     */
     function addPayee(address _account, uint256 _shares) public onlyOwner {
         _addPayee(_account, _shares);
     }
 
+    /**
+     * @dev Remove a recipient from receiving payouts from the consolidateFeeToken function.
+     * @param _account Address of the recipient.
+     * @param _index Index number of the recipient in the array of recipients.
+     */
     function removePayee(address _account, uint256 _index) public onlyOwner {
         _removePayee(_account, _index);
     }
