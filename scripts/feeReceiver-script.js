@@ -16,7 +16,7 @@ async function main() {
   const shares = [10];
 
 
-  // Deply the contract
+  // Deploy the contract
   const FeeReceiver = await hre.ethers.getContractFactory("FeeReceiver");
   const feeReceiver = await FeeReceiver.deploy(
     swapToToken,
@@ -29,14 +29,29 @@ async function main() {
 
   await feeReceiver.deployed();
 
+  const ERC20PresetMinterPauser = await hre.ethers.getContractFactory("ERC20PresetMinterPauser");
+  const erc20PresetMinterPauser = await ERC20PresetMinterPauser.deploy("TestA", "TESTA");
+
+  await erc20PresetMinterPauser.deployed();
+
+  console.log("ERC20PresetMinterPauser address:", erc20PresetMinterPauser.address);
+
   console.log("FeeReceiver address:", feeReceiver.address);
 
-  const IUniswapV2Factory = await hre.ethers.getContractFactory("IUniswapV2Factory");
-  const iUniswapV2Factory = await IUniswapV2Factory.deploy();
+  const UniswapV2Factory = await hre.ethers.getContractFactory("UniswapV2Factory");
+  const uniswapV2Factory = await UniswapV2Factory.deploy("0x18e433c7Bf8A2E1d0197CE5d8f9AFAda1A771360");
 
-  await iUniswapV2Factory.deployed();
+  await uniswapV2Factory.deployed();
 
-  console.log("IUniswapV2Factory address:", iUniswapV2Factory.address);
+  console.log("UniswapV2Factory address:", uniswapV2Factory.address);
+
+  const UniswapV2Router02 = await hre.ethers.getContractFactory("UniswapV2Router02");
+  const uniswapV2Router02 = await UniswapV2Router02.deploy(uniswapV2Factory.address, "0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2");
+
+  await uniswapV2Router02.deployed();
+
+  console.log("UniswapV2Router02 address:", uniswapV2Router02.address);
+
 }
 
 main()

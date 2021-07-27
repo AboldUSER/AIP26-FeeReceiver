@@ -20,13 +20,15 @@ task("accounts", "Prints the list of accounts", async (taskArgs, hre) => {
 module.exports = {
   networks: {
     localhost: {
+      blockGasLimit: 32450000,
       url: 'http://127.0.0.1:8545',
       timeout: 1000000,
     },
     hardhat: {
+      // blockGasLimit: 32450000, 
       forking: {
         url: 'https://eth-mainnet.alchemyapi.io/v2/' + process.env.ALCHEMY_API_KEY,
-        blockNumber: 12904065
+        blockNumber: 12904065,
       }
     },
     coverage: {
@@ -34,7 +36,7 @@ module.exports = {
     },
     ganache: {
       url: 'http://127.0.0.1:7545',
-      },
+    },
     rinkeby: {
       url: 'https://rinkeby.infura.io/v3/' + process.env.INFURA_API_KEY,
       accounts: {
@@ -52,7 +54,16 @@ module.exports = {
     },
   },
   solidity: {
-    version: '0.8.0',
+    compilers: [{
+      version: '0.8.0',
+    },
+    {
+      version: '0.5.16',
+    },
+    {
+      version: '0.6.6',
+    }
+    ]
   },
   mocha: {
     timeout: 1000000,

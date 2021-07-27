@@ -3,8 +3,10 @@ const timeMachine = require('ganache-time-traveler');
 const { artifacts, ethers, waffle } = require('hardhat');
 const BN = ethers.BigNumber;
 const { deployMockContract } = waffle;
-const IERC20 = artifacts.require('IERC20');
-const UniswapFactory = artifacts.require('IUniswapV2Factory')
+const IERC20 = artifacts.require('@openzeppelin/contracts/token/ERC20/IERC20.sol:IERC20');
+const ERC20PresetMinterPauser = artifacts.require('ERC20PresetMinterPauser');
+const UniswapV2Factory = artifacts.require('UniswapV2Factory');
+const UniswapV2Router02 = artifacts.require('UniswapV2Router02');
 
 describe("FeeReceiver Unit", () => {
   let snapshotId;
@@ -36,17 +38,12 @@ describe("FeeReceiver Unit", () => {
   before(async () => {
     [deployer, account1, account2] = await ethers.getSigners();
 
-    testAToken = await deployMockContract(deployer, IERC20.abi);
-    testBToken = await deployMockContract(deployer, IERC20.abi);
-    testCToken = await deployMockContract(deployer, IERC20.abi);
 
-    let uniswapFactory = new ethers.Contract("0x5C69bEe701ef814a2B6a3EDD4B1652CB9cc5aA6f", UniswapFactory.abi, deployer);
+    TestAToken = await hre.ethers.getContractFactory(ERC20PresetMinterPauser);
+    testAToken = await TestAToken.deploy('TestAToken', 'TESTA');
+    await testAToken.deployed();
 
-    await uniswapFactory.deployed()
-
-    pairAB = await uniswapFactory.connect(deployer).createPair(testAToken.address, testBToken.address);
-
-    console.log(pairAB);
+    await testAToken.mint(deployer, 10000);
 
     FeeReceiver = await hre.ethers.getContractFactory("FeeReceiver");
     feeReceiver = await FeeReceiver.deploy(
@@ -59,6 +56,16 @@ describe("FeeReceiver Unit", () => {
   );
   await feeReceiver.deployed();
   });
+
+  describe('Token Stuff', async () => {
+    it('tokenA minted and transferred', async () => {
+      const tokenBalance = await testAToken.balanceOf(deployer);
+
+      console.log(tokenBalance);
+
+      expect(tokenBalance).to.equal(10000);
+    })
+  })
 
   describe('Default Values', async () => {
     it('constructor sets default values', async () => {
@@ -197,7 +204,7 @@ describe("FeeReceiver Unit", () => {
   //   it('user can convert and transfer any token', async () => {
   //     await feeReceiver.connect(deployer).convertAndTransfer(payeeAddress, payeeShares, 1);
 
-  //     // create uniswap factory contract
+  //     // create uniswap factory contract object
   //     // create three test tokens (testA, testB, testC)
   //     // put one of them in this contract
   //     // create three pools in uniswap (testA/testB, testB/testC, testA/testC)
