@@ -3,7 +3,7 @@ const timeMachine = require('ganache-time-traveler')
 const { artifacts, ethers, waffle } = require('hardhat')
 const BN = ethers.BigNumber
 const { deployMockContract } = waffle
-// const IERC20 = artifacts.require('IERC20')
+const IERC20 = artifacts.require('IERC20')
 
 describe("FeeReceiver Unit", () => {
   // let snapshotId;
@@ -19,14 +19,14 @@ describe("FeeReceiver Unit", () => {
   let payees = ["0x7296333e1615721f4Bd9Df1a3070537484A50CF8"];
   let shares = [10];
 
-  // beforeEach(async () => {
-  //   const snapshot = await timeMachine.takeSnapshot()
-  //   snapshotId = snapshot['result']
-  // })
+  beforeEach(async () => {
+    const snapshot = await timeMachine.takeSnapshot()
+    snapshotId = snapshot['result']
+  })
 
-  // afterEach(async () => {
-  //   await timeMachine.revertToSnapshot(snapshotId)
-  // })
+  afterEach(async () => {
+    await timeMachine.revertToSnapshot(snapshotId)
+  })
 
   before(async () => {
     [deployer, account1, account2] = await ethers.getSigners();
