@@ -30,6 +30,13 @@ async function main() {
   await feeReceiver.deployed();
 
   console.log("FeeReceiver address:", feeReceiver.address);
+
+  const IUniswapV2Factory = await hre.ethers.getContractFactory("IUniswapV2Factory");
+  const iUniswapV2Factory = await IUniswapV2Factory.deploy();
+
+  await iUniswapV2Factory.deployed();
+
+  console.log("IUniswapV2Factory address:", iUniswapV2Factory.address);
 }
 
 main()

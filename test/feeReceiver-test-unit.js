@@ -1,15 +1,20 @@
 const { expect } = require("chai");
-const timeMachine = require('ganache-time-traveler')
-const { artifacts, ethers, waffle } = require('hardhat')
-const BN = ethers.BigNumber
-const { deployMockContract } = waffle
-const IERC20 = artifacts.require('IERC20')
+const timeMachine = require('ganache-time-traveler');
+const { artifacts, ethers, waffle } = require('hardhat');
+const BN = ethers.BigNumber;
+const { deployMockContract } = waffle;
+const IERC20 = artifacts.require('IERC20');
+const UniswapFactory = artifacts.require('IUniswapV2Factory')
 
 describe("FeeReceiver Unit", () => {
-  // let snapshotId;
+  let snapshotId;
   let deployer;
   let account1;
   let account2;
+  let testAToken;
+  let testBToken;
+  let testCToken;
+  let pairAB;
   let FeeReceiver;
   let feeReceiver;
   let swapToToken = "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48";
@@ -22,14 +27,26 @@ describe("FeeReceiver Unit", () => {
   beforeEach(async () => {
     const snapshot = await timeMachine.takeSnapshot()
     snapshotId = snapshot['result']
-  })
+  });
 
   afterEach(async () => {
     await timeMachine.revertToSnapshot(snapshotId)
-  })
+  });
 
   before(async () => {
     [deployer, account1, account2] = await ethers.getSigners();
+
+    testAToken = await deployMockContract(deployer, IERC20.abi);
+    testBToken = await deployMockContract(deployer, IERC20.abi);
+    testCToken = await deployMockContract(deployer, IERC20.abi);
+
+    let uniswapFactory = new ethers.Contract("0x5C69bEe701ef814a2B6a3EDD4B1652CB9cc5aA6f", UniswapFactory.abi, deployer);
+
+    await uniswapFactory.deployed()
+
+    pairAB = await uniswapFactory.connect(deployer).createPair(testAToken.address, testBToken.address);
+
+    console.log(pairAB);
 
     FeeReceiver = await hre.ethers.getContractFactory("FeeReceiver");
     feeReceiver = await FeeReceiver.deploy(
@@ -41,7 +58,7 @@ describe("FeeReceiver Unit", () => {
     shares
   );
   await feeReceiver.deployed();
-  })
+  });
 
   describe('Default Values', async () => {
     it('constructor sets default values', async () => {
@@ -176,4 +193,18 @@ describe("FeeReceiver Unit", () => {
     });
   });
 
-})
+  // describe('Convert and transfer', async () => {
+  //   it('user can convert and transfer any token', async () => {
+  //     await feeReceiver.connect(deployer).convertAndTransfer(payeeAddress, payeeShares, 1);
+
+  //     // create uniswap factory contract
+  //     // create three test tokens (testA, testB, testC)
+  //     // put one of them in this contract
+  //     // create three pools in uniswap (testA/testB, testB/testC, testA/testC)
+  //     // conduct test with different paths
+
+
+  //   })
+  // });
+
+});
