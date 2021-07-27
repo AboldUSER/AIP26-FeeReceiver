@@ -63,4 +63,117 @@ describe("FeeReceiver Unit", () => {
     })
   })
 
+  describe('Set swapToToken', async () => {
+    it('non owner cannot set swapToToken', async () => {
+      await expect(
+        feeReceiver.connect(account1).setSwapToToken('0x6B175474E89094C44Da98b954EedeAC495271d0F')
+      ).to.be.revertedWith('Ownable: caller is not the owner');
+    });
+
+    it('owner can set swapToToken', async () => {
+      await feeReceiver.connect(deployer).setSwapToToken('0x6B175474E89094C44Da98b954EedeAC495271d0F');
+
+      const swapToTokenAddress = await feeReceiver.swapToToken();
+      expect(swapToTokenAddress).to.equal('0x6B175474E89094C44Da98b954EedeAC495271d0F');
+    });
+  });
+
+  describe('Set poolAddress', async () => {
+    it('non owner cannot set setPoolAddress', async () => {
+      await expect(
+        feeReceiver.connect(account1).setPoolAddress('0x6B175474E89094C44Da98b954EedeAC495271d0F')
+      ).to.be.revertedWith('Ownable: caller is not the owner');
+    });
+
+    it('owner can set swapToToken', async () => {
+      await feeReceiver.connect(deployer).setPoolAddress('0x6B175474E89094C44Da98b954EedeAC495271d0F');
+
+      const poolAddressAddr = await feeReceiver.poolAddress();
+      expect(poolAddressAddr).to.equal('0x6B175474E89094C44Da98b954EedeAC495271d0F');
+    });
+  });
+
+  describe('Set stakeAddress', async () => {
+    it('non owner cannot set stakeAddress', async () => {
+      await expect(
+        feeReceiver.connect(account1).setStakeAddress('0x6B175474E89094C44Da98b954EedeAC495271d0F')
+      ).to.be.revertedWith('Ownable: caller is not the owner');
+    });
+
+    it('owner can set stakeAddress', async () => {
+      await feeReceiver.connect(deployer).setStakeAddress('0x6B175474E89094C44Da98b954EedeAC495271d0F');
+
+      const stakeAddressAddr = await feeReceiver.stakeAddress();
+      expect(stakeAddressAddr).to.equal('0x6B175474E89094C44Da98b954EedeAC495271d0F');
+    });
+  });
+
+  describe('Set stakeThreshold', async () => {
+    it('non owner cannot set stakeThreshold', async () => {
+      await expect(
+        feeReceiver.connect(account1).setStakeThreshold(2)
+      ).to.be.revertedWith('Ownable: caller is not the owner');
+    });
+
+    it('owner can set stakeThreshold', async () => {
+      await feeReceiver.connect(deployer).setStakeThreshold(500);
+
+      const stakeThresholdNum = await feeReceiver.stakeThreshold();
+      expect(stakeThresholdNum).to.equal(500);
+    });
+  });
+
+  describe('Set stakeActive', async () => {
+    it('non owner cannot set stakeActive', async () => {
+      await expect(
+        feeReceiver.connect(account1).setStakeActive(true)
+      ).to.be.revertedWith('Ownable: caller is not the owner');
+    });
+
+    it('owner can set stakeActive', async () => {
+      await feeReceiver.connect(deployer).setStakeActive(true);
+
+      const stakeActiveBool = await feeReceiver.stakeActive();
+      expect(stakeActiveBool).to.equal(true);
+    });
+  });
+
+  describe('Set triggerFee', async () => {
+    it('non owner cannot set triggerFee', async () => {
+      await expect(
+        feeReceiver.connect(account1).setTriggerFee(2)
+      ).to.be.revertedWith('Ownable: caller is not the owner');
+    });
+
+    it('owner can set triggerFee', async () => {
+      await feeReceiver.connect(deployer).setTriggerFee(2);
+
+      const triggerFeeNum = await feeReceiver.triggerFee();
+      expect(triggerFeeNum).to.equal(2);
+    });
+  });
+
+  describe('Add Payee', async () => {
+    const payeeAddress = '0x6B175474E89094C44Da98b954EedeAC495271d0F';
+    const payeeShares = 5;
+    it('non owner cannot add payee', async () => {
+      await expect(
+        feeReceiver.connect(account1).addPayee(payeeAddress, payeeShares)
+      ).to.be.revertedWith('Ownable: caller is not the owner');
+    });
+
+    it('owner can add payee', async () => {
+      const beginningTotalShares = await feeReceiver.totalShares();
+
+      await feeReceiver.connect(deployer).addPayee(payeeAddress, payeeShares);
+
+      const newPayeeAddress = await feeReceiver.payee(1);
+      const newPayeeShares = await feeReceiver.shares(newPayeeAddress);
+      const endingTotalShares = await feeReceiver.totalShares();
+      expect(newPayeeAddress).to.equal('0x6B175474E89094C44Da98b954EedeAC495271d0F');
+      expect(newPayeeShares).to.equal(5);
+      expect(endingTotalShares).to.equal(parseFloat(beginningTotalShares) + parseFloat(payeeShares));
+    });
+  });
+
 })
