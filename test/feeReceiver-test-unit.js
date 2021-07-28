@@ -1,12 +1,14 @@
 const { expect } = require("chai");
-const timeMachine = require('ganache-time-traveler');
-const { artifacts, ethers, waffle } = require('hardhat');
+const timeMachine = require("ganache-time-traveler");
+const { artifacts, ethers, waffle } = require("hardhat");
 const BN = ethers.BigNumber;
 const { deployMockContract } = waffle;
-const IERC20 = artifacts.require('@openzeppelin/contracts/token/ERC20/IERC20.sol:IERC20');
-const ERC20PresetMinterPauser = artifacts.require('ERC20PresetMinterPauser');
-const UniswapV2Factory = artifacts.require('UniswapV2Factory');
-const UniswapV2Router02 = artifacts.require('UniswapV2Router02');
+const IERC20 = artifacts.require(
+  "@openzeppelin/contracts/token/ERC20/IERC20.sol:IERC20"
+);
+const ERC20PresetMinterPauser = artifacts.require("ERC20PresetMinterPauser");
+const UniswapV2Factory = artifacts.require("UniswapV2Factory");
+const UniswapV2Router02 = artifacts.require("UniswapV2Router02");
 
 describe("FeeReceiver Unit", () => {
   let snapshotId;
@@ -27,48 +29,47 @@ describe("FeeReceiver Unit", () => {
   let shares = [10];
 
   beforeEach(async () => {
-    const snapshot = await timeMachine.takeSnapshot()
-    snapshotId = snapshot['result']
+    const snapshot = await timeMachine.takeSnapshot();
+    snapshotId = snapshot["result"];
   });
 
   afterEach(async () => {
-    await timeMachine.revertToSnapshot(snapshotId)
+    await timeMachine.revertToSnapshot(snapshotId);
   });
 
   before(async () => {
     [deployer, account1, account2] = await ethers.getSigners();
 
-
-    TestAToken = await hre.ethers.getContractFactory(ERC20PresetMinterPauser);
-    testAToken = await TestAToken.deploy('TestAToken', 'TESTA');
+    TestAToken = await ethers.getContractFactory("ERC20PresetMinterPauser");
+    testAToken = await TestAToken.deploy("TestAToken", "TESTA");
     await testAToken.deployed();
 
-    await testAToken.mint(deployer, 10000);
+    await testAToken.mint(deployer.address, 10000);
 
-    FeeReceiver = await hre.ethers.getContractFactory("FeeReceiver");
+    FeeReceiver = await ethers.getContractFactory("FeeReceiver");
     feeReceiver = await FeeReceiver.deploy(
-    swapToToken,
-    poolAddress,
-    uniRouter,
-    triggerFee,
-    payees,
-    shares
-  );
-  await feeReceiver.deployed();
+      swapToToken,
+      poolAddress,
+      uniRouter,
+      triggerFee,
+      payees,
+      shares
+    );
+    await feeReceiver.deployed();
   });
 
-  describe('Token Stuff', async () => {
-    it('tokenA minted and transferred', async () => {
-      const tokenBalance = await testAToken.balanceOf(deployer);
+  describe("Token Stuff", async () => {
+    it("tokenA minted and transferred", async () => {
+      const tokenBalance = await testAToken.balanceOf(deployer.address);
 
       console.log(tokenBalance);
 
       expect(tokenBalance).to.equal(10000);
-    })
-  })
+    });
+  });
 
-  describe('Default Values', async () => {
-    it('constructor sets default values', async () => {
+  describe("Default Values", async () => {
+    it("constructor sets default values", async () => {
       const owner = await feeReceiver.owner();
       const swapToTokenAddress = await feeReceiver.swapToToken();
       const poolContractAddress = await feeReceiver.poolAddress();
@@ -84,62 +85,80 @@ describe("FeeReceiver Unit", () => {
       expect(triggerFeeAmount).to.equal(triggerFee);
       expect(payeesAddress).to.equal(payees[0]);
       expect(sharesAmount).to.equal(shares[0]);
-    })
-  })
+    });
+  });
 
-  describe('Set swapToToken', async () => {
-    it('non owner cannot set swapToToken', async () => {
+  describe("Set swapToToken", async () => {
+    it("non owner cannot set swapToToken", async () => {
       await expect(
-        feeReceiver.connect(account1).setSwapToToken('0x6B175474E89094C44Da98b954EedeAC495271d0F')
-      ).to.be.revertedWith('Ownable: caller is not the owner');
+        feeReceiver
+          .connect(account1)
+          .setSwapToToken("0x6B175474E89094C44Da98b954EedeAC495271d0F")
+      ).to.be.revertedWith("Ownable: caller is not the owner");
     });
 
-    it('owner can set swapToToken', async () => {
-      await feeReceiver.connect(deployer).setSwapToToken('0x6B175474E89094C44Da98b954EedeAC495271d0F');
+    it("owner can set swapToToken", async () => {
+      await feeReceiver
+        .connect(deployer)
+        .setSwapToToken("0x6B175474E89094C44Da98b954EedeAC495271d0F");
 
       const swapToTokenAddress = await feeReceiver.swapToToken();
-      expect(swapToTokenAddress).to.equal('0x6B175474E89094C44Da98b954EedeAC495271d0F');
+      expect(swapToTokenAddress).to.equal(
+        "0x6B175474E89094C44Da98b954EedeAC495271d0F"
+      );
     });
   });
 
-  describe('Set poolAddress', async () => {
-    it('non owner cannot set setPoolAddress', async () => {
+  describe("Set poolAddress", async () => {
+    it("non owner cannot set setPoolAddress", async () => {
       await expect(
-        feeReceiver.connect(account1).setPoolAddress('0x6B175474E89094C44Da98b954EedeAC495271d0F')
-      ).to.be.revertedWith('Ownable: caller is not the owner');
+        feeReceiver
+          .connect(account1)
+          .setPoolAddress("0x6B175474E89094C44Da98b954EedeAC495271d0F")
+      ).to.be.revertedWith("Ownable: caller is not the owner");
     });
 
-    it('owner can set swapToToken', async () => {
-      await feeReceiver.connect(deployer).setPoolAddress('0x6B175474E89094C44Da98b954EedeAC495271d0F');
+    it("owner can set swapToToken", async () => {
+      await feeReceiver
+        .connect(deployer)
+        .setPoolAddress("0x6B175474E89094C44Da98b954EedeAC495271d0F");
 
       const poolAddressAddr = await feeReceiver.poolAddress();
-      expect(poolAddressAddr).to.equal('0x6B175474E89094C44Da98b954EedeAC495271d0F');
+      expect(poolAddressAddr).to.equal(
+        "0x6B175474E89094C44Da98b954EedeAC495271d0F"
+      );
     });
   });
 
-  describe('Set stakeAddress', async () => {
-    it('non owner cannot set stakeAddress', async () => {
+  describe("Set stakeAddress", async () => {
+    it("non owner cannot set stakeAddress", async () => {
       await expect(
-        feeReceiver.connect(account1).setStakeAddress('0x6B175474E89094C44Da98b954EedeAC495271d0F')
-      ).to.be.revertedWith('Ownable: caller is not the owner');
+        feeReceiver
+          .connect(account1)
+          .setStakeAddress("0x6B175474E89094C44Da98b954EedeAC495271d0F")
+      ).to.be.revertedWith("Ownable: caller is not the owner");
     });
 
-    it('owner can set stakeAddress', async () => {
-      await feeReceiver.connect(deployer).setStakeAddress('0x6B175474E89094C44Da98b954EedeAC495271d0F');
+    it("owner can set stakeAddress", async () => {
+      await feeReceiver
+        .connect(deployer)
+        .setStakeAddress("0x6B175474E89094C44Da98b954EedeAC495271d0F");
 
       const stakeAddressAddr = await feeReceiver.stakeAddress();
-      expect(stakeAddressAddr).to.equal('0x6B175474E89094C44Da98b954EedeAC495271d0F');
+      expect(stakeAddressAddr).to.equal(
+        "0x6B175474E89094C44Da98b954EedeAC495271d0F"
+      );
     });
   });
 
-  describe('Set stakeThreshold', async () => {
-    it('non owner cannot set stakeThreshold', async () => {
+  describe("Set stakeThreshold", async () => {
+    it("non owner cannot set stakeThreshold", async () => {
       await expect(
         feeReceiver.connect(account1).setStakeThreshold(2)
-      ).to.be.revertedWith('Ownable: caller is not the owner');
+      ).to.be.revertedWith("Ownable: caller is not the owner");
     });
 
-    it('owner can set stakeThreshold', async () => {
+    it("owner can set stakeThreshold", async () => {
       await feeReceiver.connect(deployer).setStakeThreshold(500);
 
       const stakeThresholdNum = await feeReceiver.stakeThreshold();
@@ -147,14 +166,14 @@ describe("FeeReceiver Unit", () => {
     });
   });
 
-  describe('Set stakeActive', async () => {
-    it('non owner cannot set stakeActive', async () => {
+  describe("Set stakeActive", async () => {
+    it("non owner cannot set stakeActive", async () => {
       await expect(
         feeReceiver.connect(account1).setStakeActive(true)
-      ).to.be.revertedWith('Ownable: caller is not the owner');
+      ).to.be.revertedWith("Ownable: caller is not the owner");
     });
 
-    it('owner can set stakeActive', async () => {
+    it("owner can set stakeActive", async () => {
       await feeReceiver.connect(deployer).setStakeActive(true);
 
       const stakeActiveBool = await feeReceiver.stakeActive();
@@ -162,14 +181,14 @@ describe("FeeReceiver Unit", () => {
     });
   });
 
-  describe('Set triggerFee', async () => {
-    it('non owner cannot set triggerFee', async () => {
+  describe("Set triggerFee", async () => {
+    it("non owner cannot set triggerFee", async () => {
       await expect(
         feeReceiver.connect(account1).setTriggerFee(2)
-      ).to.be.revertedWith('Ownable: caller is not the owner');
+      ).to.be.revertedWith("Ownable: caller is not the owner");
     });
 
-    it('owner can set triggerFee', async () => {
+    it("owner can set triggerFee", async () => {
       await feeReceiver.connect(deployer).setTriggerFee(2);
 
       const triggerFeeNum = await feeReceiver.triggerFee();
@@ -177,16 +196,16 @@ describe("FeeReceiver Unit", () => {
     });
   });
 
-  describe('Add Payee', async () => {
-    const payeeAddress = '0x6B175474E89094C44Da98b954EedeAC495271d0F';
+  describe("Add Payee", async () => {
+    const payeeAddress = "0x6B175474E89094C44Da98b954EedeAC495271d0F";
     const payeeShares = 5;
-    it('non owner cannot add payee', async () => {
+    it("non owner cannot add payee", async () => {
       await expect(
         feeReceiver.connect(account1).addPayee(payeeAddress, payeeShares)
-      ).to.be.revertedWith('Ownable: caller is not the owner');
+      ).to.be.revertedWith("Ownable: caller is not the owner");
     });
 
-    it('owner can add payee', async () => {
+    it("owner can add payee", async () => {
       const beginningTotalShares = await feeReceiver.totalShares();
 
       await feeReceiver.connect(deployer).addPayee(payeeAddress, payeeShares);
@@ -194,9 +213,13 @@ describe("FeeReceiver Unit", () => {
       const newPayeeAddress = await feeReceiver.payee(1);
       const newPayeeShares = await feeReceiver.shares(newPayeeAddress);
       const endingTotalShares = await feeReceiver.totalShares();
-      expect(newPayeeAddress).to.equal('0x6B175474E89094C44Da98b954EedeAC495271d0F');
+      expect(newPayeeAddress).to.equal(
+        "0x6B175474E89094C44Da98b954EedeAC495271d0F"
+      );
       expect(newPayeeShares).to.equal(5);
-      expect(endingTotalShares).to.equal(parseFloat(beginningTotalShares) + parseFloat(payeeShares));
+      expect(endingTotalShares).to.equal(
+        parseFloat(beginningTotalShares) + parseFloat(payeeShares)
+      );
     });
   });
 
@@ -210,8 +233,6 @@ describe("FeeReceiver Unit", () => {
   //     // create three pools in uniswap (testA/testB, testB/testC, testA/testC)
   //     // conduct test with different paths
 
-
   //   })
   // });
-
 });
