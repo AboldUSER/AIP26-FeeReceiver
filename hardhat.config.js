@@ -20,12 +20,14 @@ task("accounts", "Prints the list of accounts", async (taskArgs, hre) => {
 module.exports = {
   networks: {
     localhost: {
-      blockGasLimit: 32450000,
+      // blockGasLimit: 100000000000,
+      // gas: 100000000000,
       url: 'http://127.0.0.1:8545',
       timeout: 1000000,
     },
     hardhat: {
-      // blockGasLimit: 32450000, 
+      // blockGasLimit: 100000000000, 
+      // gas: 100000000000,
       forking: {
         url: 'https://eth-mainnet.alchemyapi.io/v2/' + process.env.ALCHEMY_API_KEY,
         blockNumber: 12904065,
@@ -62,6 +64,28 @@ module.exports = {
     },
     {
       version: '0.6.6',
+      settings: {          // See the solidity docs for advice about optimization and evmVersion
+        optimizer: {
+          enabled: true,
+          runs: 999999
+        },
+        evmVersion: "istanbul", 
+        outputSelection: {
+         "*": {
+           "": [
+             "ast"
+           ],
+           "*": [
+             "evm.bytecode.object",
+             "evm.deployedBytecode.object",
+             "abi",
+             "evm.bytecode.sourceMap",
+             "evm.deployedBytecode.sourceMap",
+             "metadata"
+           ]
+         },
+       }
+       }
     }
     ]
   },

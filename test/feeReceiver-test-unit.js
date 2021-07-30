@@ -3,12 +3,6 @@ const timeMachine = require("ganache-time-traveler");
 const { artifacts, ethers, waffle } = require("hardhat");
 const BN = ethers.BigNumber;
 const { deployMockContract } = waffle;
-const IERC20 = artifacts.require(
-  "@openzeppelin/contracts/token/ERC20/IERC20.sol:IERC20"
-);
-const ERC20PresetMinterPauser = artifacts.require("ERC20PresetMinterPauser");
-const UniswapV2Factory = artifacts.require("UniswapV2Factory");
-const UniswapV2Router02 = artifacts.require("UniswapV2Router02");
 
 describe("FeeReceiver Unit", () => {
   let snapshotId;
@@ -18,12 +12,11 @@ describe("FeeReceiver Unit", () => {
   let testAToken;
   let testBToken;
   let testCToken;
-  let pairAB;
-  let FeeReceiver;
+  let uniswapV2Router02Contract;
   let feeReceiver;
-  let swapToToken = "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48";
+  let swapToToken;
   let poolAddress = "0x7296333e1615721f4Bd9Df1a3070537484A50CF8";
-  let uniRouter = "0x7a250d5630B4cF539739dF2C5dAcb4c659F2488D";
+  let uniRouter
   let triggerFee = 1;
   let payees = ["0x7296333e1615721f4Bd9Df1a3070537484A50CF8"];
   let shares = [10];
@@ -44,7 +37,63 @@ describe("FeeReceiver Unit", () => {
     testAToken = await TestAToken.deploy("TestAToken", "TESTA");
     await testAToken.deployed();
 
-    await testAToken.mint(deployer.address, 10000);
+    await testAToken.mint(deployer.address, 1000000);
+
+    TestBToken = await ethers.getContractFactory("ERC20PresetMinterPauser");
+    testBToken = await TestBToken.deploy("TestBToken", "TESTB");
+    await testBToken.deployed();
+
+    await testBToken.mint(deployer.address, 1000000);
+
+    TestCToken = await ethers.getContractFactory("ERC20PresetMinterPauser");
+    testCToken = await TestCToken.deploy("TestCToken", "TESTC");
+    await testCToken.deployed();
+
+    await testCToken.mint(deployer.address, 1000000);
+
+    UniswapV2Router02Contract = await ethers.getContractFactory("UniswapV2Router02");
+    uniswapV2Router02Contract = await UniswapV2Router02Contract.deploy("0x5C69bEe701ef814a2B6a3EDD4B1652CB9cc5aA6f", "0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2");
+    await uniswapV2Router02Contract.deployed();
+
+    testAApprove = await testAToken.approve(uniswapV2Router02Contract.address, 500000);
+    testBApprove = await testBToken.approve(uniswapV2Router02Contract.address, 500000);
+    testCApprove = await testCToken.approve(uniswapV2Router02Contract.address, 500000);
+
+    await uniswapV2Router02Contract.addLiquidity(
+      testAToken.address,
+      testBToken.address,
+      250000,
+      250000,
+      250000,
+      250000,
+      deployer.address,
+      1627647649
+    );
+
+    await uniswapV2Router02Contract.addLiquidity(
+      testAToken.address,
+      testCToken.address,
+      250000,
+      250000,
+      250000,
+      250000,
+      deployer.address,
+      1627647649
+    );
+
+    await uniswapV2Router02Contract.addLiquidity(
+      testBToken.address,
+      testCToken.address,
+      250000,
+      250000,
+      250000,
+      250000,
+      deployer.address,
+      1627647649
+    );
+
+    swapToToken = testCToken.address;
+    uniRouter = uniswapV2Router02Contract.address;
 
     FeeReceiver = await ethers.getContractFactory("FeeReceiver");
     feeReceiver = await FeeReceiver.deploy(
@@ -56,16 +105,23 @@ describe("FeeReceiver Unit", () => {
       shares
     );
     await feeReceiver.deployed();
+
+    await testAToken.transfer(feeReceiver.address, 25000)
   });
 
-  describe("Token Stuff", async () => {
-    it("tokenA minted and transferred", async () => {
-      const tokenBalance = await testAToken.balanceOf(deployer.address);
-
-      console.log(tokenBalance);
-
-      expect(tokenBalance).to.equal(10000);
+  describe("Token Setup", async () => {
+    it("test tokens minted and transferred to uniswap and feereceiver contract", async () => {
+      const tokenABalance = await testAToken.balanceOf(deployer.address);
+      const tokenBBalance = await testBToken.balanceOf(deployer.address);
+      const tokenCBalance = await testCToken.balanceOf(deployer.address);
+      const feeReceiverTokenABalance = await testAToken.balanceOf(feeReceiver.address);
+      
+      expect(tokenABalance).to.equal(475000);
+      expect(tokenBBalance).to.equal(500000);
+      expect(tokenCBalance).to.equal(500000);
+      expect(feeReceiverTokenABalance).to.equal(25000);
     });
+
   });
 
   describe("Default Values", async () => {
@@ -223,16 +279,63 @@ describe("FeeReceiver Unit", () => {
     });
   });
 
-  // describe('Convert and transfer', async () => {
-  //   it('user can convert and transfer any token', async () => {
-  //     await feeReceiver.connect(deployer).convertAndTransfer(payeeAddress, payeeShares, 1);
+  describe('Convert and transfer', async () => {
+    it('user can convert and transfer any token along a Uniswap pool path of 2', async () => {
+      await feeReceiver.connect(deployer).convertAndTransfer(testAToken.address, 0, [testAToken.address, testCToken.address]);
 
-  //     // create uniswap factory contract object
-  //     // create three test tokens (testA, testB, testC)
-  //     // put one of them in this contract
-  //     // create three pools in uniswap (testA/testB, testB/testC, testA/testC)
-  //     // conduct test with different paths
+      const feeReceiverTokenABalance = await testAToken.balanceOf(feeReceiver.address);
+      const msgSenderTokenABalance = await testCToken.balanceOf(deployer.address);
+      const poolTokenABalance = await testCToken.balanceOf(payees[0]);
 
-  //   })
-  // });
+      expect(feeReceiverTokenABalance).to.equal(0);
+      expect(msgSenderTokenABalance).to.equal(500226);
+      expect(poolTokenABalance).to.equal(22439);
+
+    })
+
+    it('user can convert and transfer any token along a Uniswap pool path of 3', async () => {
+      await feeReceiver.connect(deployer).convertAndTransfer(testAToken.address, 0, [testAToken.address, testBToken.address, testCToken.address]);
+
+      const feeReceiverTokenABalance = await testAToken.balanceOf(feeReceiver.address);
+      const msgSenderTokenABalance = await testCToken.balanceOf(deployer.address);
+      const poolTokenABalance = await testCToken.balanceOf(payees[0]);
+
+      expect(feeReceiverTokenABalance).to.equal(0);
+      expect(msgSenderTokenABalance).to.equal(500207);
+      expect(poolTokenABalance).to.equal(20516);
+
+    });
+
+    it('user cannot successfully convert and transfer token is staking is required and user is not staking', async () => {
+
+      await feeReceiver.connect(deployer).setStakeAddress("0x6B175474E89094C44Da98b954EedeAC495271d0F")
+
+      await feeReceiver.connect(deployer).setStakeThreshold(500);
+
+      await feeReceiver.connect(deployer).setStakeActive(true);
+
+      await expect(feeReceiver.connect(account1).convertAndTransfer(testAToken.address, 0, [testAToken.address, testBToken.address, testCToken.address]))
+      .to.be.revertedWith('Not enough staked tokens');
+
+    })
+
+    it('event ConvertAndTransfer is emitted when user successfully calls convertAndTransfer function along a Uniswap pool path of 2', async () => {
+
+      await expect(feeReceiver.connect(deployer).convertAndTransfer(testAToken.address, 0, [testAToken.address, testCToken.address]))
+        .to.emit(feeReceiver, 'ConvertAndTransfer')
+        .withArgs(deployer.address, testAToken.address, testCToken.address, 25000, 22665, [poolAddress]);
+
+    })
+
+    it('event ConvertAndTransfer is emitted when user successfully calls convertAndTransfer function along a Uniswap pool path of 3', async () => {
+
+      await expect(feeReceiver.connect(deployer).convertAndTransfer(testAToken.address, 0, [testAToken.address, testBToken.address, testCToken.address]))
+        .to.emit(feeReceiver, 'ConvertAndTransfer')
+        .withArgs(deployer.address, testAToken.address, testCToken.address, 25000, 20723, payees);
+
+    })
+
+    // conduct more test with stakers
+
+  });
 });

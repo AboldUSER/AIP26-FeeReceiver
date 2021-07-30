@@ -10,18 +10,18 @@ import "./TokenPaymentSplitter.sol";
 
 interface IUniswapV2Router02 {
     function swapExactTokensForTokensSupportingFeeOnTransferTokens(
-        uint amountIn,
-        uint amountOutMin,
+        uint256 amountIn,
+        uint256 amountOutMin,
         address[] calldata path,
         address to,
-        uint deadline
+        uint256 deadline
     ) external;
 }
 
 contract FeeReceiver is Ownable, TokenPaymentSplitter {
     using SafeMath for uint256;
 
-    event FeeConsolidatation(
+    event ConvertAndTransfer(
         address triggerAccount,
         IERC20 swapTokenFrom,
         IERC20 swapTokenTo,
@@ -46,7 +46,7 @@ contract FeeReceiver is Ownable, TokenPaymentSplitter {
 
     /**
      * @dev Set a new token to swap to (e.g., stabletoken).
-     **/ 
+     **/
     function setSwapToToken(address _swapToToken) public onlyOwner {
         swapToToken = _swapToToken;
     }
@@ -72,7 +72,7 @@ contract FeeReceiver is Ownable, TokenPaymentSplitter {
         stakeThreshold = _stakeThreshold;
     }
 
-        /**
+    /**
      * @dev Set a if staking is required.
      */
     function setStakeActive(bool _switch) public onlyOwner {
@@ -111,31 +111,31 @@ contract FeeReceiver is Ownable, TokenPaymentSplitter {
         uint256 _amountOutMin,
         address[] calldata _path
     ) public {
-
         if (stakeActive) {
             require(checkStake(msg.sender), "Not enough staked tokens");
         }
 
         // Calls the balanceOf function from the to be converted token.
-        (uint256 tokenBalance) = _balanceOfErc20(_swapFromToken);
+        uint256 tokenBalance = _balanceOfErc20(_swapFromToken);
 
         // Approve token for AMM usage.
         _approveErc20(_swapFromToken, tokenBalance);
 
         // Calls the balanceOf function from the reward token to get the initial balance pre-swap.
-        (uint256 initialTokenBalance) = _balanceOfErc20(swapToToken);
-        
+        uint256 initialTokenBalance = _balanceOfErc20(swapToToken);
+
         // Calls the swap function from the on-chain AMM to swap token from fee pool into reward token.
-        IUniswapV2Router02(uniRouter).swapExactTokensForTokensSupportingFeeOnTransferTokens(
-            tokenBalance,
-            _amountOutMin,
-            _path,
-            address(this),
-            block.timestamp.add(600) // Sets a deadline currently set at 600 seconds || 10 minutes
-        );
+        IUniswapV2Router02(uniRouter)
+            .swapExactTokensForTokensSupportingFeeOnTransferTokens(
+                tokenBalance,
+                _amountOutMin,
+                _path,
+                address(this),
+                block.timestamp.add(600) // Sets a deadline currently set at 600 seconds || 10 minutes
+            );
 
         // Calls the balanceOf function from the reward token to get the new balance post-swap.
-        (uint256 newTokenBalance) = _balanceOfErc20(swapToToken);
+        uint256 newTokenBalance = _balanceOfErc20(swapToToken);
 
         // Calls the swap function from the on-chain AMM to swap token from fee pool into reward token.
         uint256 rewardAmount = newTokenBalance.sub(initialTokenBalance);
@@ -155,7 +155,7 @@ contract FeeReceiver is Ownable, TokenPaymentSplitter {
             );
         }
 
-        emit FeeConsolidatation(
+        emit ConvertAndTransfer(
             msg.sender,
             IERC20(_swapFromToken),
             IERC20(swapToToken),
@@ -192,27 +192,25 @@ contract FeeReceiver is Ownable, TokenPaymentSplitter {
      * @param _amount Amount of ERC20  to be approved.
      *
      * */
-    function _approveErc20(
-        address _tokenToApprove,
-        uint256 _amount
-    ) internal {
+    function _approveErc20(address _tokenToApprove, uint256 _amount) internal {
         IERC20 erc;
         erc = IERC20(_tokenToApprove);
-        require(
-            erc.approve(address(uniRouter), _amount), 'approve failed.');
+        require(erc.approve(address(uniRouter), _amount), "approve failed.");
     }
 
     /**
      * @dev Internal function to call balanceOf on ERC20.
      * @param _tokenToBalanceOf Address of ERC20 to call.
-     * 
+     *
      * */
-    function _balanceOfErc20(
-        address _tokenToBalanceOf
-    ) internal view returns (uint256) {
+    function _balanceOfErc20(address _tokenToBalanceOf)
+        internal
+        view
+        returns (uint256)
+    {
         IERC20 erc;
         erc = IERC20(_tokenToBalanceOf);
-        (uint256 tokenBalance) = erc.balanceOf(address(this));
+        uint256 tokenBalance = erc.balanceOf(address(this));
         return tokenBalance;
     }
 
@@ -220,10 +218,12 @@ contract FeeReceiver is Ownable, TokenPaymentSplitter {
      * @dev Checks if an address is staking tokens at or above threshold.
      * @param _staker Address to check if token staker.
      */
-    function checkStake(address _staker) internal view returns(bool) {
+    function checkStake(address _staker) internal view returns (bool) {
         IERC20 erc;
         erc = IERC20(stakeAddress);
-        bool verifiedStaker = (erc.balanceOf(_staker) >= stakeThreshold) ? true : false;
+        bool verifiedStaker = (erc.balanceOf(_staker) >= stakeThreshold)
+            ? true
+            : false;
         return verifiedStaker;
     }
 
