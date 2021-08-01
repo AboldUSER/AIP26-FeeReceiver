@@ -3,31 +3,15 @@ require('@nomiclabs/hardhat-ethers');
 require('@nomiclabs/hardhat-truffle5');
 require('@nomiclabs/hardhat-waffle');
 require('ganache-time-traveler');
-
-// This is a sample Hardhat task. To learn how to create your own go to
-// https://hardhat.org/guides/create-task.html
-task("accounts", "Prints the list of accounts", async (taskArgs, hre) => {
-  const accounts = await hre.ethers.getSigners();
-
-  for (const account of accounts) {
-    console.log(account.address);
-  }
-});
-
-// You need to export an object to set up your config
-// Go to https://hardhat.org/config/ to learn more
+require("solidity-coverage");
 
 module.exports = {
   networks: {
     localhost: {
-      // blockGasLimit: 100000000000,
-      // gas: 100000000000,
       url: 'http://127.0.0.1:8545',
       timeout: 1000000,
     },
     hardhat: {
-      // blockGasLimit: 100000000000, 
-      // gas: 100000000000,
       forking: {
         url: 'https://eth-mainnet.alchemyapi.io/v2/' + process.env.ALCHEMY_API_KEY,
         blockNumber: 12904065,
@@ -37,7 +21,7 @@ module.exports = {
       url: 'http://localhost:8555',
     },
     ganache: {
-      url: 'http://127.0.0.1:7545',
+      url: 'http://127.0.0.1:8545',
     },
     rinkeby: {
       url: 'https://rinkeby.infura.io/v3/' + process.env.INFURA_API_KEY,
@@ -60,7 +44,7 @@ module.exports = {
       version: '0.8.0',
     },
     {
-      version: '0.5.16',
+      version: '0.7.6',
     },
     {
       version: '0.6.6',
@@ -86,6 +70,9 @@ module.exports = {
          },
        }
        }
+    },
+    {
+      version: '0.5.16',
     }
     ]
   },

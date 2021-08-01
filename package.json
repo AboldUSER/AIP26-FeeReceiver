@@ -16,6 +16,7 @@
     "@nomiclabs/hardhat-waffle": "^2.0.1",
     "@nomiclabs/hardhat-web3": "^2.0.0",
     "@openzeppelin/contracts": "^4.2.0",
+    "@openzeppelinstaking/contracts": "npm:@openzeppelin/contracts@^3.4.0-solc-0.7",
     "@uniswap/lib": "^1.1.1",
     "@uniswap/v2-core": "^1.0.1",
     "@uniswap/v2-periphery": "*",
@@ -24,6 +25,7 @@
     "ethereum-waffle": "^3.4.0",
     "ethers": "^5.4.2",
     "ganache-time-traveler": "^1.0.16",
-    "hardhat": "^2.5.0"
+    "hardhat": "^2.5.0",
+    "solidity-coverage": "^0.7.16"
   }
 }

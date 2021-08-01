@@ -23,16 +23,14 @@ contract FeeReceiver is Ownable, TokenPaymentSplitter {
 
     event ConvertAndTransfer(
         address triggerAccount,
-        IERC20 swapTokenFrom,
-        IERC20 swapTokenTo,
+        IERC20 swapFromToken,
+        IERC20 swapToToken,
         uint256 amountTokenFrom,
         uint256 amountTokenTo,
         address[] recievedAddresses
     );
 
     address public swapToToken;
-
-    address public poolAddress;
 
     address public immutable uniRouter;
 
@@ -48,20 +46,15 @@ contract FeeReceiver is Ownable, TokenPaymentSplitter {
      * @dev Set a new token to swap to (e.g., stabletoken).
      **/
     function setSwapToToken(address _swapToToken) public onlyOwner {
+        require(_swapToToken != address(0), 'Cannot set to zero address');
         swapToToken = _swapToToken;
-    }
-
-    /**
-     * @dev Set a new address of fee pool.
-     */
-    function setPoolAddress(address _poolAddress) public onlyOwner {
-        poolAddress = _poolAddress;
     }
 
     /**
      * @dev Set a new address of stake contract.
      */
     function setStakeAddress(address _stakeAddress) public onlyOwner {
+        require(_stakeAddress != address(0), 'Cannot set to zero address');
         stakeAddress = _stakeAddress;
     }
 
@@ -83,19 +76,18 @@ contract FeeReceiver is Ownable, TokenPaymentSplitter {
      * @dev Set a new fee (perentage 0 - 100) for calling the ConsolidateFeeToken function.
      */
     function setTriggerFee(uint256 _triggerFee) public onlyOwner {
+        require(_triggerFee <= 100, 'Cannot set trigger fee above 100');
         triggerFee = _triggerFee;
     }
 
     constructor(
         address _swapToToken,
-        address _poolAddress,
         address _uniRouter,
         uint256 _triggerFee,
         address[] memory _payees,
         uint256[] memory _shares
     ) TokenPaymentSplitter(_payees, _shares) {
         swapToToken = _swapToToken;
-        poolAddress = _poolAddress;
         uniRouter = _uniRouter;
         triggerFee = _triggerFee;
     }
@@ -111,12 +103,20 @@ contract FeeReceiver is Ownable, TokenPaymentSplitter {
         uint256 _amountOutMin,
         address[] calldata _path
     ) public {
+
+        // Checks is the staking requirement is on and if true then requires user to be staking.
         if (stakeActive) {
             require(checkStake(msg.sender), "Not enough staked tokens");
         }
 
+        // Checks that at least 1 payee is set to recieve converted token.
+        require(_payees.length >= 1, "No payees are set");
+
         // Calls the balanceOf function from the to be converted token.
         uint256 tokenBalance = _balanceOfErc20(_swapFromToken);
+
+        // Checks that the converted token is currently present in the contract.
+        require(tokenBalance > 0, "Token balance is zero");
 
         // Approve token for AMM usage.
         _approveErc20(_swapFromToken, tokenBalance);
@@ -147,11 +147,12 @@ contract FeeReceiver is Ownable, TokenPaymentSplitter {
         // Transfers remaining amount to reward pool address(es).
         uint256 rewardPoolAmount = rewardAmount.sub(triggerFeeAmount);
         for (uint256 i = 0; i < _payees.length; i++) {
-            uint256 distributionRatio = (_shares[_payees[i]].div(_totalShares));
+            uint256 distributionRatio = (_shares[_payees[i]].mul(100)).div(_totalShares);
+            uint256 payeeAmount = (rewardPoolAmount.mul(distributionRatio)).div(100);
             _transferErc20(
                 _payees[i],
                 swapToToken,
-                rewardPoolAmount.mul(distributionRatio)
+                payeeAmount
             );
         }
 
@@ -195,7 +196,7 @@ contract FeeReceiver is Ownable, TokenPaymentSplitter {
     function _approveErc20(address _tokenToApprove, uint256 _amount) internal {
         IERC20 erc;
         erc = IERC20(_tokenToApprove);
-        require(erc.approve(address(uniRouter), _amount), "approve failed.");
+        require(erc.approve(address(uniRouter), _amount), "approve failed");
     }
 
     /**

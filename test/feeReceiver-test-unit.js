@@ -11,15 +11,19 @@ describe("FeeReceiver Unit", () => {
   let account2;
   let testAToken;
   let testBToken;
-  let testCToken;
+  let swapToToken;
   let uniswapV2Router02Contract;
   let feeReceiver;
-  let swapToToken;
-  let poolAddress = "0x7296333e1615721f4Bd9Df1a3070537484A50CF8";
   let uniRouter
   let triggerFee = 1;
   let payees = ["0x7296333e1615721f4Bd9Df1a3070537484A50CF8"];
   let shares = [10];
+  // staking contract variables
+  const CLIFF = 10 // time in seconds
+  const DURATION = 100 // time in seconds
+  let stakeToken;
+  let stakingContract
+
 
   beforeEach(async () => {
     const snapshot = await timeMachine.takeSnapshot();
@@ -45,19 +49,41 @@ describe("FeeReceiver Unit", () => {
 
     await testBToken.mint(deployer.address, 1000000);
 
-    TestCToken = await ethers.getContractFactory("ERC20PresetMinterPauser");
-    testCToken = await TestCToken.deploy("TestCToken", "TESTC");
-    await testCToken.deployed();
+    SwapToToken = await ethers.getContractFactory("ERC20PresetMinterPauser");
+    swapToToken = await SwapToToken.deploy("SwapToToken", "SWAPTO");
+    await swapToToken.deployed();
 
-    await testCToken.mint(deployer.address, 1000000);
+    await swapToToken.mint(deployer.address, 1000000);
+
+    StakeToken = await ethers.getContractFactory("ERC20PresetMinterPauser");
+    stakeToken = await StakeToken.deploy("Stake Token", "sTOKEN");
+    await stakeToken.deployed();
+
+    await stakeToken.mint(account1.address, 1000);
+    await stakeToken.mint(account2.address, 1000);
+
+    StakingContract = await ethers.getContractFactory('Staking')
+    stakingContract = await StakingContract.deploy(
+      stakeToken.address,
+      'Staked Token',
+      'sdTOKEN',
+      DURATION,
+      CLIFF
+    );
+
+    stakingContractAccount1Approve = await stakeToken.connect(account1).approve(stakingContract.address, 100);
+    stakingContractAccount2Approve = await stakeToken.connect(account2).approve(stakingContract.address, 500);
+
+    await stakingContract.connect(account1).stake('100');
+    await stakingContract.connect(account2).stake('500');
 
     UniswapV2Router02Contract = await ethers.getContractFactory("UniswapV2Router02");
     uniswapV2Router02Contract = await UniswapV2Router02Contract.deploy("0x5C69bEe701ef814a2B6a3EDD4B1652CB9cc5aA6f", "0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2");
     await uniswapV2Router02Contract.deployed();
 
-    testAApprove = await testAToken.approve(uniswapV2Router02Contract.address, 500000);
-    testBApprove = await testBToken.approve(uniswapV2Router02Contract.address, 500000);
-    testCApprove = await testCToken.approve(uniswapV2Router02Contract.address, 500000);
+    testATokenApprove = await testAToken.approve(uniswapV2Router02Contract.address, 500000);
+    testBTokenApprove = await testBToken.approve(uniswapV2Router02Contract.address, 500000);
+    swapToTokenApprove = await swapToToken.approve(uniswapV2Router02Contract.address, 500000);
 
     await uniswapV2Router02Contract.addLiquidity(
       testAToken.address,
@@ -72,7 +98,7 @@ describe("FeeReceiver Unit", () => {
 
     await uniswapV2Router02Contract.addLiquidity(
       testAToken.address,
-      testCToken.address,
+      swapToToken.address,
       250000,
       250000,
       250000,
@@ -83,7 +109,7 @@ describe("FeeReceiver Unit", () => {
 
     await uniswapV2Router02Contract.addLiquidity(
       testBToken.address,
-      testCToken.address,
+      swapToToken.address,
       250000,
       250000,
       250000,
@@ -92,13 +118,11 @@ describe("FeeReceiver Unit", () => {
       1627647649
     );
 
-    swapToToken = testCToken.address;
     uniRouter = uniswapV2Router02Contract.address;
 
     FeeReceiver = await ethers.getContractFactory("FeeReceiver");
     feeReceiver = await FeeReceiver.deploy(
-      swapToToken,
-      poolAddress,
+      swapToToken.address,
       uniRouter,
       triggerFee,
       payees,
@@ -113,13 +137,15 @@ describe("FeeReceiver Unit", () => {
     it("test tokens minted and transferred to uniswap and feereceiver contract", async () => {
       const tokenABalance = await testAToken.balanceOf(deployer.address);
       const tokenBBalance = await testBToken.balanceOf(deployer.address);
-      const tokenCBalance = await testCToken.balanceOf(deployer.address);
+      const swapToTokenBalance = await swapToToken.balanceOf(deployer.address);
       const feeReceiverTokenABalance = await testAToken.balanceOf(feeReceiver.address);
-      
+      const stakingBalance = await stakingContract.connect(account1).balanceOf(account1.address)
+
       expect(tokenABalance).to.equal(475000);
       expect(tokenBBalance).to.equal(500000);
-      expect(tokenCBalance).to.equal(500000);
+      expect(swapToTokenBalance).to.equal(500000);
       expect(feeReceiverTokenABalance).to.equal(25000);
+      expect(stakingBalance).to.equal('100')
     });
 
   });
@@ -128,15 +154,13 @@ describe("FeeReceiver Unit", () => {
     it("constructor sets default values", async () => {
       const owner = await feeReceiver.owner();
       const swapToTokenAddress = await feeReceiver.swapToToken();
-      const poolContractAddress = await feeReceiver.poolAddress();
       const uniRouterAddress = await feeReceiver.uniRouter();
       const triggerFeeAmount = await feeReceiver.triggerFee();
       const payeesAddress = await feeReceiver.payee(0);
       const sharesAmount = await feeReceiver.shares(payeesAddress);
 
       expect(owner).to.equal(deployer.address);
-      expect(swapToTokenAddress).to.equal(swapToToken);
-      expect(poolContractAddress).to.equal(poolAddress);
+      expect(swapToTokenAddress).to.equal(swapToToken.address);
       expect(uniRouterAddress).to.equal(uniRouter);
       expect(triggerFeeAmount).to.equal(triggerFee);
       expect(payeesAddress).to.equal(payees[0]);
@@ -153,6 +177,12 @@ describe("FeeReceiver Unit", () => {
       ).to.be.revertedWith("Ownable: caller is not the owner");
     });
 
+    it("owner cannot set swapToToken to zero address", async () => {
+      await expect(
+        feeReceiver.connect(deployer).setSwapToToken("0x0000000000000000000000000000000000000000")
+      ).to.be.revertedWith("Cannot set to zero address");
+    });
+
     it("owner can set swapToToken", async () => {
       await feeReceiver
         .connect(deployer)
@@ -165,27 +195,6 @@ describe("FeeReceiver Unit", () => {
     });
   });
 
-  describe("Set poolAddress", async () => {
-    it("non owner cannot set setPoolAddress", async () => {
-      await expect(
-        feeReceiver
-          .connect(account1)
-          .setPoolAddress("0x6B175474E89094C44Da98b954EedeAC495271d0F")
-      ).to.be.revertedWith("Ownable: caller is not the owner");
-    });
-
-    it("owner can set swapToToken", async () => {
-      await feeReceiver
-        .connect(deployer)
-        .setPoolAddress("0x6B175474E89094C44Da98b954EedeAC495271d0F");
-
-      const poolAddressAddr = await feeReceiver.poolAddress();
-      expect(poolAddressAddr).to.equal(
-        "0x6B175474E89094C44Da98b954EedeAC495271d0F"
-      );
-    });
-  });
-
   describe("Set stakeAddress", async () => {
     it("non owner cannot set stakeAddress", async () => {
       await expect(
@@ -193,6 +202,12 @@ describe("FeeReceiver Unit", () => {
           .connect(account1)
           .setStakeAddress("0x6B175474E89094C44Da98b954EedeAC495271d0F")
       ).to.be.revertedWith("Ownable: caller is not the owner");
+    });
+
+    it("owner cannot set stakeAddress to zero address", async () => {
+      await expect(
+        feeReceiver.connect(deployer).setStakeAddress("0x0000000000000000000000000000000000000000")
+      ).to.be.revertedWith("Cannot set to zero address");
     });
 
     it("owner can set stakeAddress", async () => {
@@ -244,6 +259,12 @@ describe("FeeReceiver Unit", () => {
       ).to.be.revertedWith("Ownable: caller is not the owner");
     });
 
+    it("owner cannot set triggerFee greater than 100", async () => {
+      await expect(
+        feeReceiver.connect(deployer).setTriggerFee(101)
+      ).to.be.revertedWith("Cannot set trigger fee above 100");
+    });
+
     it("owner can set triggerFee", async () => {
       await feeReceiver.connect(deployer).setTriggerFee(2);
 
@@ -260,9 +281,22 @@ describe("FeeReceiver Unit", () => {
         feeReceiver.connect(account1).addPayee(payeeAddress, payeeShares)
       ).to.be.revertedWith("Ownable: caller is not the owner");
     });
+    
+    it("owner cannot add payee if they are already included in payee array", async () => {
+      const existingPayee = await feeReceiver.connect(deployer).payee(0); 
+      await expect(
+        feeReceiver.connect(deployer).addPayee(existingPayee, payeeShares)
+      ).to.be.revertedWith("PaymentSplitter: account already has shares");
+    });
+
+    it("owner cannot add payee with zero shares", async () => {
+      await expect(
+        feeReceiver.connect(deployer).addPayee(payeeAddress, 0)
+      ).to.be.revertedWith("PaymentSplitter: shares are 0");
+    });
 
     it("owner can add payee", async () => {
-      const beginningTotalShares = await feeReceiver.totalShares();
+      const beginningTotalShares = await feeReceiver.connect(deployer).totalShares();
 
       await feeReceiver.connect(deployer).addPayee(payeeAddress, payeeShares);
 
@@ -277,15 +311,53 @@ describe("FeeReceiver Unit", () => {
         parseFloat(beginningTotalShares) + parseFloat(payeeShares)
       );
     });
+
   });
 
-  describe('Convert and transfer', async () => {
+  describe("Remove Payee", async () => {
+      
+      const correctPayeeIndex = 0;
+      const incorrectPayeeIndex = 1;
+    it("non owner cannot remove payee", async () => {
+      const correctPayeeAddress = await feeReceiver.payee(0);
+      await expect(
+        feeReceiver.connect(account1).removePayee(correctPayeeAddress, correctPayeeIndex)
+      ).to.be.revertedWith("Ownable: caller is not the owner");
+    });
+
+    it("owner cannot remove payee if they are not on payee array", async () => {
+      const incorrectPayeeAddress = account2.address;
+      await expect(
+        feeReceiver.connect(deployer).removePayee(incorrectPayeeAddress, correctPayeeIndex)
+      ).to.be.revertedWith("PaymentSplitter: account does not match payee array index");
+    });
+
+    it("owner cannot remove payee if provided wrong payee index for payee array", async () => {
+      const correctPayeeAddress = await feeReceiver.payee(0);
+      await expect(
+        feeReceiver.connect(deployer).removePayee(correctPayeeAddress, incorrectPayeeIndex)
+      ).to.be.revertedWith("PaymentSplitter: index not in payee array");
+    });
+
+    it("owner can remove payee", async () => {
+      const correctPayeeAddress = await feeReceiver.payee(0);
+      await feeReceiver.connect(deployer).removePayee(correctPayeeAddress, correctPayeeIndex);
+
+      const removedPayeeShares = await feeReceiver.shares(correctPayeeAddress);
+      const endingTotalShares = await feeReceiver.totalShares();
+      await expect(feeReceiver.payee(0)).to.be.revertedWith("PaymentSplitter: There are no payees");
+      expect(removedPayeeShares).to.equal(0);
+      expect(endingTotalShares).to.equal(0);
+    });
+  });
+
+  describe('Convert and transfer without staking', async () => {
     it('user can convert and transfer any token along a Uniswap pool path of 2', async () => {
-      await feeReceiver.connect(deployer).convertAndTransfer(testAToken.address, 0, [testAToken.address, testCToken.address]);
+      await feeReceiver.connect(deployer).convertAndTransfer(testAToken.address, 0, [testAToken.address, swapToToken.address]);
 
       const feeReceiverTokenABalance = await testAToken.balanceOf(feeReceiver.address);
-      const msgSenderTokenABalance = await testCToken.balanceOf(deployer.address);
-      const poolTokenABalance = await testCToken.balanceOf(payees[0]);
+      const msgSenderTokenABalance = await swapToToken.balanceOf(deployer.address);
+      const poolTokenABalance = await swapToToken.balanceOf(payees[0]);
 
       expect(feeReceiverTokenABalance).to.equal(0);
       expect(msgSenderTokenABalance).to.equal(500226);
@@ -294,11 +366,11 @@ describe("FeeReceiver Unit", () => {
     })
 
     it('user can convert and transfer any token along a Uniswap pool path of 3', async () => {
-      await feeReceiver.connect(deployer).convertAndTransfer(testAToken.address, 0, [testAToken.address, testBToken.address, testCToken.address]);
+      await feeReceiver.connect(deployer).convertAndTransfer(testAToken.address, 0, [testAToken.address, testBToken.address, swapToToken.address]);
 
       const feeReceiverTokenABalance = await testAToken.balanceOf(feeReceiver.address);
-      const msgSenderTokenABalance = await testCToken.balanceOf(deployer.address);
-      const poolTokenABalance = await testCToken.balanceOf(payees[0]);
+      const msgSenderTokenABalance = await swapToToken.balanceOf(deployer.address);
+      const poolTokenABalance = await swapToToken.balanceOf(payees[0]);
 
       expect(feeReceiverTokenABalance).to.equal(0);
       expect(msgSenderTokenABalance).to.equal(500207);
@@ -306,36 +378,62 @@ describe("FeeReceiver Unit", () => {
 
     });
 
-    it('user cannot successfully convert and transfer token is staking is required and user is not staking', async () => {
-
-      await feeReceiver.connect(deployer).setStakeAddress("0x6B175474E89094C44Da98b954EedeAC495271d0F")
-
-      await feeReceiver.connect(deployer).setStakeThreshold(500);
-
-      await feeReceiver.connect(deployer).setStakeActive(true);
-
-      await expect(feeReceiver.connect(account1).convertAndTransfer(testAToken.address, 0, [testAToken.address, testBToken.address, testCToken.address]))
-      .to.be.revertedWith('Not enough staked tokens');
-
-    })
-
     it('event ConvertAndTransfer is emitted when user successfully calls convertAndTransfer function along a Uniswap pool path of 2', async () => {
 
-      await expect(feeReceiver.connect(deployer).convertAndTransfer(testAToken.address, 0, [testAToken.address, testCToken.address]))
+      await expect(feeReceiver.connect(deployer).convertAndTransfer(testAToken.address, 0, [testAToken.address, swapToToken.address]))
         .to.emit(feeReceiver, 'ConvertAndTransfer')
-        .withArgs(deployer.address, testAToken.address, testCToken.address, 25000, 22665, [poolAddress]);
+        .withArgs(deployer.address, testAToken.address, swapToToken.address, 25000, 22665, payees);
 
     })
 
     it('event ConvertAndTransfer is emitted when user successfully calls convertAndTransfer function along a Uniswap pool path of 3', async () => {
 
-      await expect(feeReceiver.connect(deployer).convertAndTransfer(testAToken.address, 0, [testAToken.address, testBToken.address, testCToken.address]))
+      await expect(feeReceiver.connect(deployer).convertAndTransfer(testAToken.address, 0, [testAToken.address, testBToken.address, swapToToken.address]))
         .to.emit(feeReceiver, 'ConvertAndTransfer')
-        .withArgs(deployer.address, testAToken.address, testCToken.address, 25000, 20723, payees);
+        .withArgs(deployer.address, testAToken.address, swapToToken.address, 25000, 20723, payees);
 
     })
 
     // conduct more test with stakers
+
+  });
+  describe('Convert and transfer with staking enabled', async () => {
+
+    before(async () => {
+      await feeReceiver.connect(deployer).setStakeAddress(stakingContract.address)
+
+      await feeReceiver.connect(deployer).setStakeThreshold(500);
+
+      await feeReceiver.connect(deployer).setStakeActive(true);
+    });
+
+    it('user cannot successfully convert and transfer token when staking is required and user is not staking any stake tokens', async () => {
+
+      await expect(feeReceiver.connect(deployer).convertAndTransfer(testAToken.address, 0, [testAToken.address, testBToken.address, swapToToken.address]))
+        .to.be.revertedWith('Not enough staked tokens');
+
+    });
+
+    it('user cannot successfully convert and transfer token when staking is required and user is not staking enough stake tokens', async () => {
+
+      await expect(feeReceiver.connect(account1).convertAndTransfer(testAToken.address, 0, [testAToken.address, testBToken.address, swapToToken.address]))
+        .to.be.revertedWith('Not enough staked tokens');
+
+    });
+
+    it('user can successfully convert and transfer token when staking is required and user is staking enough', async () => {
+
+      await feeReceiver.connect(account2).convertAndTransfer(testAToken.address, 0, [testAToken.address, testBToken.address, swapToToken.address]);
+
+      const feeReceiverTokenABalance = await testAToken.balanceOf(feeReceiver.address);
+      const msgSenderTokenABalance = await swapToToken.balanceOf(account2.address);
+      const poolTokenABalance = await swapToToken.balanceOf(payees[0]);
+
+      expect(feeReceiverTokenABalance).to.equal(0);
+      expect(msgSenderTokenABalance).to.equal(207);
+      expect(poolTokenABalance).to.equal(20516);
+
+    });
 
   });
 });

@@ -18,7 +18,7 @@ import "@openzeppelin/contracts/utils/math/SafeMath.sol";
  *
  * The actual transfer is triggered as a separate function.
  */
-contract TokenPaymentSplitter is Context {
+abstract contract TokenPaymentSplitter is Context {
     event PayeeAdded(address account, uint256 shares);
     event PayeeRemoved(address account);
     event PaymentReleased(address to, uint256 amount);
@@ -66,6 +66,7 @@ contract TokenPaymentSplitter is Context {
      * @dev Getter for the address of the payee number `index`.
      */
     function payee(uint256 index) public view returns (address) {
+        require(_payees.length >= 1,'PaymentSplitter: There are no payees');
         return _payees[index];
     }
 
@@ -97,11 +98,7 @@ contract TokenPaymentSplitter is Context {
      * @param index The position of the payee in the _payees array.
      */
     function _removePayee(address account, uint256 index) internal {
-        require(
-            account != address(0),
-            "PaymentSplitter: account is the zero address"
-        );
-        require(_shares[account] > 0, "PaymentSplitter: shares are 0");
+        require(index < _payees.length, "PaymentSplitter: index not in payee array");
         require(account == _payees[index], "PaymentSplitter: account does not match payee array index");
 
         _totalShares = _totalShares - _shares[account];
